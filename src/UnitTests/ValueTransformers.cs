@@ -320,4 +320,49 @@ namespace AutoMapper.UnitTests
             dest.Value.ShouldBe("Jimmy was cool and now is straight up dope");
         }
     }
+    public class TransformingNullable : AutoMapperSpecBase
+    {
+        public class Source
+        {
+            public int Value { get; set; }
+            public int? NotNull { get; set; }
+            public int? Null { get; set; }
+        }
+        public class Dest
+        {
+            public int Value { get; set; }
+            public int? NotNull { get; set; }
+            public int? Null { get; set; }
+        }
+        protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg => 
+            cfg.CreateMap<Source, Dest>().AddTransform<int>(source=>source+1).AddTransform<int?>(source => source == null ? null : source + 2));
+        [Fact]
+        public void Should_transform_value()
+        {
+            var dest = Mapper.Map<Source, Dest>(new Source { NotNull = 0 });
+            dest.Value.ShouldBe(1);
+            dest.Null.ShouldBeNull();
+            dest.NotNull.ShouldBe(2);
+        }
+    }
+    public class NonGenericMemberTransformer : AutoMapperSpecBase
+    {
+        public class Source
+        {
+            public string Value { get; set; }
+        }
+        public class Dest<T>
+        {
+            public T Value { get; set; }
+        }
+        protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
+                cfg.CreateMap(typeof(Source), typeof(Dest<>)).ForMember("Value", opt => opt.AddTransform(d => d + " and more")));
+        [Fact]
+        public void ShouldMatchMemberType()
+        {
+            var source = new Source { Value = "value" };
+            var dest = Mapper.Map<Dest<string>>(source);
+            dest.Value.ShouldBe("value and more");
+        }
+    }
 }

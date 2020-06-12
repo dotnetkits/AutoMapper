@@ -6,7 +6,11 @@ using Shouldly;
 
 namespace AutoMapper.UnitTests
 {
+    using AutoMapper.Internal;
     using Configuration;
+    using System;
+    using System.Linq;
+    using System.Linq.Expressions;
 
     public class PrimitiveExtensionsTester
     {
@@ -31,27 +35,11 @@ namespace AutoMapper.UnitTests
         }
 
         [Fact]
-        public void Should_not_flag_only_enumerable_type_as_writeable_collection()
+        public void GetMembersChain()
         {
-            PrimitiveHelper.IsListOrDictionaryType(typeof(string)).ShouldBeFalse();
-        }
-
-        [Fact]
-        public void Should_flag_list_as_writable_collection()
-        {
-            PrimitiveHelper.IsListOrDictionaryType(typeof(int[])).ShouldBeTrue();
-        }
-
-        [Fact]
-        public void Should_flag_generic_list_as_writeable_collection()
-        {
-            PrimitiveHelper.IsListOrDictionaryType(typeof(List<int>)).ShouldBeTrue();
-        }
-
-        [Fact]
-        public void Should_flag_dictionary_as_writeable_collection()
-        {
-            PrimitiveHelper.IsListOrDictionaryType(typeof(Dictionary<string, int>)).ShouldBeTrue();
+            Expression<Func<DateTime, DayOfWeek>> e = x => x.Date.AddDays(1).Date.AddHours(2).AddMinutes(2).Date.DayOfWeek;
+            var chain = e.GetMembersChain().Select(m => m.Name).ToArray();
+            chain.ShouldBe(new[] { "Date", "AddDays", "Date", "AddHours", "AddMinutes", "Date", "DayOfWeek" });
         }
     }
 }

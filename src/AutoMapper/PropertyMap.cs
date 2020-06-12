@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
@@ -12,9 +13,10 @@ namespace AutoMapper
     using static Expression;
 
     [DebuggerDisplay("{DestinationMember.Name}")]
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public class PropertyMap : DefaultMemberMap
     {
-        private readonly List<MemberInfo> _memberChain = new List<MemberInfo>();
+        private List<MemberInfo> _memberChain = new List<MemberInfo>();
         private readonly List<ValueTransformerConfiguration> _valueTransformerConfigs = new List<ValueTransformerConfiguration>();
 
         public PropertyMap(MemberInfo destinationMember, TypeMap typeMap)
@@ -26,20 +28,8 @@ namespace AutoMapper
         public PropertyMap(PropertyMap inheritedMappedProperty, TypeMap typeMap)
             : this(inheritedMappedProperty.DestinationMember, typeMap) => ApplyInheritedPropertyMap(inheritedMappedProperty);
 
-        public PropertyMap(PropertyMap includedMemberMap, TypeMap typeMap, LambdaExpression expression) 
-            : this(includedMemberMap, typeMap) => ApplyIncludedMemberMap(includedMemberMap, expression);
-
-        private void ApplyIncludedMemberMap(PropertyMap includedMemberMap, LambdaExpression expression)
-        {
-            CustomSource = expression;
-            if(includedMemberMap._memberChain.Count > 0)
-            {
-                ChainMembers(expression.Body.GetMembers().Select(e => e.Member).Concat(includedMemberMap._memberChain));
-            }
-            CustomMapExpression = CheckCustomSource(CustomMapExpression);
-        }
-
-        private LambdaExpression CheckCustomSource(LambdaExpression lambda) => CheckCustomSource(lambda, CustomSource);
+        public PropertyMap(PropertyMap includedMemberMap, TypeMap typeMap, IncludedMember includedMember) 
+            : this(includedMemberMap, typeMap) => IncludedMember = includedMember;
 
         public static LambdaExpression CheckCustomSource(LambdaExpression lambda, LambdaExpression customSource) =>
             (lambda == null || customSource == null) ?
@@ -52,17 +42,18 @@ namespace AutoMapper
 
         public override Type DestinationType => DestinationMember.GetMemberType();
 
-        public override IEnumerable<MemberInfo> SourceMembers => _memberChain;
-        public override LambdaExpression CustomSource { get; set; }
+        public override IReadOnlyCollection<MemberInfo> SourceMembers => _memberChain;
+        public override IncludedMember IncludedMember { get; set; }
         public override bool Inline { get; set; } = true;
+        public override bool CanBeSet => ReflectionHelper.CanBeSet(DestinationMember);
         public override bool Ignored { get; set; }
-        public bool AllowNull { get; set; }
+        public override bool? AllowNull { get; set; }
         public int? MappingOrder { get; set; }
         public override LambdaExpression CustomMapFunction { get; set; }
         public override LambdaExpression Condition { get; set; }
         public override LambdaExpression PreCondition { get; set; }
         public override LambdaExpression CustomMapExpression { get; set; }
-        public override bool UseDestinationValue { get; set; }
+        public override bool? UseDestinationValue { get; set; }
         public bool ExplicitExpansion { get; set; }
         public override object NullSubstitute { get; set; }
         public override ValueResolverConfiguration ValueResolverConfig { get; set; }
@@ -84,6 +75,7 @@ namespace AutoMapper
             {
                 Ignored = true;
             }
+            AllowNull = AllowNull ?? inheritedMappedProperty.AllowNull;
             CustomMapExpression = CustomMapExpression ?? inheritedMappedProperty.CustomMapExpression;
             CustomMapFunction = CustomMapFunction ?? inheritedMappedProperty.CustomMapFunction;
             Condition = Condition ?? inheritedMappedProperty.Condition;
@@ -92,7 +84,9 @@ namespace AutoMapper
             MappingOrder = MappingOrder ?? inheritedMappedProperty.MappingOrder;
             ValueResolverConfig = ValueResolverConfig ?? inheritedMappedProperty.ValueResolverConfig;
             ValueConverterConfig = ValueConverterConfig ?? inheritedMappedProperty.ValueConverterConfig;
+            UseDestinationValue = UseDestinationValue ?? inheritedMappedProperty.UseDestinationValue;
             _valueTransformerConfigs.InsertRange(0, inheritedMappedProperty._valueTransformerConfigs);
+            _memberChain = _memberChain.Count == 0 ? inheritedMappedProperty._memberChain : _memberChain;
         }
 
         public override bool CanResolveValue => HasSource && !Ignored;
@@ -102,30 +96,7 @@ namespace AutoMapper
         public bool IsResolveConfigured => ValueResolverConfig != null || CustomMapFunction != null ||
                                          CustomMapExpression != null || ValueConverterConfig != null;
 
-        public void MapFrom(LambdaExpression sourceMember)
-        {
-            CustomMapExpression = sourceMember;
-            Ignored = false;
-        }
-
-        public void MapFrom(string propertyOrField)
-        {
-            var mapExpression = TypeMap.SourceType.IsGenericTypeDefinition() ?
-                                                // just a placeholder so the member is mapped
-                                                Lambda(Constant(null)) :
-                                                MemberAccessLambda(TypeMap.SourceType, propertyOrField);
-            MapFrom(mapExpression);
-        }
-
         public void AddValueTransformation(ValueTransformerConfiguration valueTransformerConfiguration) =>
             _valueTransformerConfigs.Add(valueTransformerConfiguration);
-
-        internal void CheckMappedReadonly()
-        {
-            if(IsResolveConfigured && !ReflectionHelper.CanBeSet(DestinationMember))
-            {
-                UseDestinationValue = true;
-            }
-        }
     }
 }

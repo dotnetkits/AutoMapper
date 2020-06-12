@@ -1,9 +1,50 @@
 ﻿using System;
 using Xunit;
 using Shouldly;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace AutoMapper.UnitTests
 {
+    public class ForCtorParam_MapFrom_String : AutoMapperSpecBase
+    {
+        public class Destination
+        {
+            public Destination(string key1, string value1) => (Key, Value) = (key1, value1);
+            public string Key { get; }
+            public string Value { get; }
+        }
+        protected override MapperConfiguration Configuration => new MapperConfiguration(c => 
+            c.CreateMap(typeof(KeyValuePair<,>), typeof(Destination))
+                .ForCtorParam("value1", o => o.MapFrom("Value"))
+                .ForCtorParam("key1", o => o.MapFrom("Key")));
+        [Fact]
+        public void Should_map_ok()
+        {
+            var destination = Map<Destination>(new KeyValuePair<int,int>(1,2));
+            destination.Key.ShouldBe("1");
+            destination.Value.ShouldBe("2");
+        }
+    }
+    public class ForCtorParam_MapFrom_ProjectTo : AutoMapperSpecBase
+    {
+        public class Source
+        {
+            public string Value1 { get; set; }
+        }
+        public class Destination
+        {
+            public Destination(string value) => Value = value;
+            public string Value { get; }
+        }
+        protected override MapperConfiguration Configuration => new MapperConfiguration(c => c.CreateMap<Source, Destination>().ForCtorParam("value", o => o.MapFrom(s => s.Value1)));
+        [Fact]
+        public void Should_map_ok()
+        {
+            var destination = ProjectTo<Destination>(new[] { new Source { Value1 = "Core" }}.AsQueryable()).Single();
+            destination.Value.ShouldBe("Core");
+        }
+    }
     public class When_configuring__non_generic_ctor_param_members : AutoMapperSpecBase
     {
         public class Source

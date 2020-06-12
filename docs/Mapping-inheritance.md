@@ -49,7 +49,7 @@ public class OrderDto { }
 public class OnlineOrderDto : OrderDto { }
 public class MailOrderDto : OrderDto { }
 
-Mapper.Initialize(cfg => {
+var configuration = new MapperConfiguration(cfg => {
     cfg.CreateMap<Order, OrderDto>()
         .Include<OnlineOrder, OnlineOrderDto>()
         .Include<MailOrder, MailOrderDto>();
@@ -59,7 +59,7 @@ Mapper.Initialize(cfg => {
 
 // Perform Mapping
 var order = new OnlineOrder();
-var mapped = Mapper.Map(order, order.GetType(), typeof(OrderDto));
+var mapped = mapper.Map(order, order.GetType(), typeof(OrderDto));
 Assert.IsType<OnlineOrderDto>(mapped);
 ```
 
@@ -70,7 +70,7 @@ You will notice that because the mapped object is a OnlineOrder, AutoMapper has 
 Instead of configuring inheritance from the base class, you can specify inheritance from the derived classes:
 
 ```c#
-Mapper.Initialize(cfg => {
+var configuration = new MapperConfiguration(cfg => {
   cfg.CreateMap<Order, OrderDto>()
     .ForMember(o => o.Id, m => m.MapFrom(s => s.OrderId));
   cfg.CreateMap<OnlineOrder, OnlineOrderDto>()
@@ -91,7 +91,7 @@ For simple cases, you can use `As` to redirect a base map to an existing derived
     mapper.Map<OrderDto>(new Order()).ShouldBeOfType<OnlineOrderDto>();
 ```
 
-### Inheritance Mapping Priorities
+## Inheritance Mapping Priorities
 
 This introduces additional complexity because there are multiple ways a property can be mapped. The priority of these sources are as follows
 
@@ -118,7 +118,7 @@ public class OrderDto
 }
 
 //Mappings
-Mapper.Initialize(cfg => {
+var configuration = new MapperConfiguration(cfg => {
     cfg.CreateMap<Order, OrderDto>()
         .Include<OnlineOrder, OrderDto>()
         .Include<MailOrder, OrderDto>()
@@ -129,7 +129,7 @@ Mapper.Initialize(cfg => {
 
 // Perform Mapping
 var order = new OnlineOrder { Referrer = "google" };
-var mapped = Mapper.Map(order, order.GetType(), typeof(OrderDto));
+var mapped = mapper.Map(order, order.GetType(), typeof(OrderDto));
 Assert.IsNull(mapped.Referrer);
 ```
 

@@ -1,26 +1,38 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
 
 namespace AutoMapper.Configuration
 {
-    public class CtorParamConfigurationExpression<TSource> : ICtorParamConfigurationExpression<TSource>, ICtorParameterConfiguration
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public class CtorParamConfigurationExpression<TSource, TDestination> : ICtorParamConfigurationExpression<TSource>, ICtorParameterConfiguration
     {
-        private readonly string _ctorParamName;
+        public string CtorParamName { get; }
+        public Type SourceType { get; }
+
         private readonly List<Action<ConstructorParameterMap>> _ctorParamActions = new List<Action<ConstructorParameterMap>>();
 
-        public CtorParamConfigurationExpression(string ctorParamName) => _ctorParamName = ctorParamName;
-
-        public void MapFrom<TMember>(Expression<Func<TSource, TMember>> sourceMember)
+        public CtorParamConfigurationExpression(string ctorParamName, Type sourceType)
         {
-            _ctorParamActions.Add(cpm => cpm.CustomMapExpression = sourceMember);
+            CtorParamName = ctorParamName;
+            SourceType = sourceType;
         }
+
+        public void MapFrom<TMember>(Expression<Func<TSource, TMember>> sourceMember) =>
+            _ctorParamActions.Add(cpm => cpm.CustomMapExpression = sourceMember);
 
         public void MapFrom<TMember>(Func<TSource, ResolutionContext, TMember> resolver)
         {
-            Expression<Func<TSource, ResolutionContext, TMember>> resolverExpression = (src, ctxt) => resolver(src, ctxt);
+            Expression<Func<TSource, TDestination, TMember, ResolutionContext, TMember>> resolverExpression = (src, dest, destMember, ctxt) => resolver(src, ctxt);
             _ctorParamActions.Add(cpm => cpm.CustomMapFunction = resolverExpression);
+        }
+
+        public void MapFrom(string sourceMemberName)
+        {
+            SourceType.GetFieldOrProperty(sourceMemberName);
+            _ctorParamActions.Add(cpm => cpm.MapFrom(sourceMemberName));
         }
 
         public void Configure(TypeMap typeMap)
@@ -31,10 +43,10 @@ namespace AutoMapper.Configuration
                 throw new AutoMapperConfigurationException($"The type {typeMap.Types.DestinationType.Name} does not have a constructor.\n{typeMap.Types.DestinationType.FullName}");
             }
 
-            var parameter = ctorParams.SingleOrDefault(p => p.Parameter.Name == _ctorParamName);
+            var parameter = ctorParams.SingleOrDefault(p => p.Parameter.Name == CtorParamName);
             if (parameter == null)
             {
-                throw new AutoMapperConfigurationException($"{typeMap.Types.DestinationType.Name} does not have a constructor with a parameter named '{_ctorParamName}'.\n{typeMap.Types.DestinationType.FullName}");
+                throw new AutoMapperConfigurationException($"{typeMap.Types.DestinationType.Name} does not have a constructor with a parameter named '{CtorParamName}'.\n{typeMap.Types.DestinationType.FullName}");
             }
             parameter.CanResolveValue = true;
 

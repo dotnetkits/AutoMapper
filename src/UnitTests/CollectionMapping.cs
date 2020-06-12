@@ -10,6 +10,274 @@ using System.Reflection;
 
 namespace AutoMapper.UnitTests
 {
+    public class Enumerator_disposable_at_runtime_class : AutoMapperSpecBase
+    {
+        class CustomList<T> : List<T>
+        {
+            private CustomEnumerator _enumerator;
+
+            public new EnumeratorBase GetEnumerator()
+            {
+                _enumerator = new CustomEnumerator(base.GetEnumerator(), this);
+                return _enumerator;
+            }
+            public bool Disposed { get; set; }
+            public class EnumeratorBase
+            {
+                public EnumeratorBase(IEnumerator<T> enumerator, CustomList<T> list)
+                {
+                    Enumerator = enumerator;
+                    List = list;
+                }
+                public IEnumerator<T> Enumerator { get; }
+                public CustomList<T> List { get; }
+                public T Current => Enumerator.Current;
+                public void Dispose()
+                {
+                    Enumerator.Dispose();
+                    List.Disposed = true;
+                }
+                public bool MoveNext() => Enumerator.MoveNext();
+                public void Reset() => Enumerator.Reset();
+            }
+            public class CustomEnumerator : EnumeratorBase, IDisposable
+            {
+                public CustomEnumerator(IEnumerator<T> enumerator, CustomList<T> list) : base(enumerator, list) { }
+            }
+        }
+
+        protected override MapperConfiguration Configuration => new MapperConfiguration(_ => { });
+
+        [Fact]
+        public void Should_call_dispose()
+        {
+            var source = new CustomList<int>();
+            Mapper.Map<List<int>>(source);
+            source.Disposed.ShouldBeTrue();
+        }
+    }
+    public class Enumerator_non_disposable_struct : AutoMapperSpecBase
+    {
+        class CustomList<T> : List<T>
+        {
+            private CustomEnumerator _enumerator;
+
+            public new CustomEnumerator GetEnumerator()
+            {
+                _enumerator = new CustomEnumerator(base.GetEnumerator(), this);
+                return _enumerator;
+            }
+            public bool Disposed { get; set; }
+            public struct CustomEnumerator
+            {
+                public CustomEnumerator(IEnumerator<T> enumerator, CustomList<T> list)
+                {
+                    Enumerator = enumerator;
+                    List = list;
+                }
+                public IEnumerator<T> Enumerator { get; }
+                public CustomList<T> List { get; }
+                public T Current => Enumerator.Current;
+                public void Dispose()
+                {
+                    Enumerator.Dispose();
+                    List.Disposed = true;
+                }
+                public bool MoveNext() => Enumerator.MoveNext();
+                public void Reset() => Enumerator.Reset();
+            }
+        }
+
+        protected override MapperConfiguration Configuration => new MapperConfiguration(_ => { });
+
+        [Fact]
+        public void Should_not_call_dispose()
+        {
+            var source = new CustomList<int>();
+            Mapper.Map<List<int>>(source);
+            source.Disposed.ShouldBeFalse();
+        }
+    }
+    public class Enumerator_dispose : AutoMapperSpecBase
+    {
+        class CustomList<T> : List<T>
+        {
+            private CustomEnumerator _enumerator;
+
+            public new IEnumerator<T> GetEnumerator()
+            {
+                _enumerator = new CustomEnumerator(base.GetEnumerator());
+                return _enumerator;
+            }
+            public bool Disposed => _enumerator.Disposed;
+            class CustomEnumerator : IEnumerator<T>
+            {
+                public CustomEnumerator(IEnumerator<T> enumerator) => Enumerator = enumerator;
+                public bool Disposed { get; set; }
+                public IEnumerator<T> Enumerator { get; }
+                public T Current => Enumerator.Current;
+                object IEnumerator.Current => Enumerator.Current;
+                public void Dispose()
+                {
+                    Enumerator.Dispose();
+                    Disposed = true;
+                }
+                public bool MoveNext() => Enumerator.MoveNext();
+                public void Reset() => Enumerator.Reset();
+            }
+        }
+
+        protected override MapperConfiguration Configuration => new MapperConfiguration(_ => { });
+
+        [Fact]
+        public void Should_call_dispose()
+        {
+            var source = new CustomList<int>();
+            Mapper.Map<List<int>>(source);
+            source.Disposed.ShouldBeTrue();
+        }
+    }
+
+    public class Enumerator_dispose_exception : AutoMapperSpecBase
+    {
+        class CustomList<T> : List<T>
+        {
+            private CustomEnumerator _enumerator;
+
+            public new IEnumerator<T> GetEnumerator()
+            {
+                _enumerator = new CustomEnumerator(base.GetEnumerator());
+                return _enumerator;
+            }
+            public bool Disposed => _enumerator.Disposed;
+            class CustomEnumerator : IEnumerator<T>
+            {
+                public CustomEnumerator(IEnumerator<T> enumerator) => Enumerator = enumerator;
+                public bool Disposed { get; set; }
+                public IEnumerator<T> Enumerator { get; }
+                public T Current => Enumerator.Current;
+                object IEnumerator.Current => Enumerator.Current;
+                public void Dispose()
+                {
+                    Enumerator.Dispose();
+                    Disposed = true;
+                }
+                public bool MoveNext() => throw new NotImplementedException();
+                public void Reset() => Enumerator.Reset();
+            }
+        }
+
+        protected override MapperConfiguration Configuration => new MapperConfiguration(_ => { });
+
+        [Fact]
+        public void Should_call_dispose()
+        {
+            var source = new CustomList<int>();
+            try
+            {
+                Mapper.Map<List<int>>(source);
+            }
+            catch
+            {
+            }
+            source.Disposed.ShouldBeTrue();
+        }
+    }
+
+    public class Enumerator_dispose_struct : AutoMapperSpecBase
+    {
+        class CustomList<T> : List<T>
+        {
+            private CustomEnumerator _enumerator;
+
+            public new CustomEnumerator GetEnumerator()
+            {
+                _enumerator = new CustomEnumerator(base.GetEnumerator(), this);
+                return _enumerator;
+            }
+            public bool Disposed { get; set; }
+            public struct CustomEnumerator : IEnumerator<T>
+            {
+                public CustomEnumerator(IEnumerator<T> enumerator, CustomList<T> list)
+                {
+                    Enumerator = enumerator;
+                    List = list;
+                }
+                public IEnumerator<T> Enumerator { get; }
+                public CustomList<T> List { get; }
+                public T Current => Enumerator.Current;
+                object IEnumerator.Current => Enumerator.Current;
+                public void Dispose()
+                {
+                    Enumerator.Dispose();
+                    List.Disposed = true;
+                }
+                public bool MoveNext() => Enumerator.MoveNext();
+                public void Reset() => Enumerator.Reset();
+            }
+        }
+
+        protected override MapperConfiguration Configuration => new MapperConfiguration(_ => { });
+
+        [Fact]
+        public void Should_call_dispose()
+        {
+            var source = new CustomList<int>();
+            Mapper.Map<List<int>>(source);
+            source.Disposed.ShouldBeTrue();
+        }
+    }
+
+    public class Enumerator_dispose_exception_struct : AutoMapperSpecBase
+    {
+        class CustomList<T> : List<T>
+        {
+            private CustomEnumerator _enumerator;
+
+            public new CustomEnumerator GetEnumerator()
+            {
+                _enumerator = new CustomEnumerator(base.GetEnumerator(), this);
+                return _enumerator;
+            }
+            public bool Disposed { get; set; }
+            public struct CustomEnumerator : IEnumerator<T>
+            {
+                public CustomEnumerator(IEnumerator<T> enumerator, CustomList<T> list)
+                {
+                    Enumerator = enumerator;
+                    List = list;
+                }
+                public IEnumerator<T> Enumerator { get; }
+                public T Current => Enumerator.Current;
+                object IEnumerator.Current => Enumerator.Current;
+                public CustomList<T> List { get; }
+                public void Dispose()
+                {
+                    Enumerator.Dispose();
+                    List.Disposed = true;
+                }
+                public bool MoveNext() => throw new NotImplementedException();
+                public void Reset() => Enumerator.Reset();
+            }
+        }
+
+        protected override MapperConfiguration Configuration => new MapperConfiguration(_ => { });
+
+        [Fact]
+        public void Should_call_dispose()
+        {
+            var source = new CustomList<int>();
+            try
+            {
+                Mapper.Map<List<int>>(source);
+            }
+            catch
+            {
+            }
+            source.Disposed.ShouldBeTrue();
+        }
+    }
+
     public class When_mapping_to_existing_observable_collection : AutoMapperSpecBase
     {
         class CollectionHolder
@@ -75,6 +343,7 @@ namespace AutoMapper.UnitTests
         {
             cfg.CreateMap<SourceA, DestA>();
             cfg.CreateMap<SourceB, DestB>();
+            cfg.CreateMap<SourceItem, DestItem>();
         });
 
         [Fact]
@@ -125,6 +394,24 @@ namespace AutoMapper.UnitTests
             Mapper.Map(new Source(), new Destination())
                 .MyCollection.SequenceEqual(new[] { "one", "two" }).ShouldBeTrue();
         }
+    }
+
+    public class When_mapping_to_readonly_collection_without_setter : AutoMapperSpecBase
+    {
+        public class Source
+        {
+            public IEnumerable<string> MyCollection { get; } = new[] { "one", "two" };
+        }
+        public class Destination
+        {
+            public IEnumerable<string> MyCollection { get; } = new ReadOnlyCollection<string>(new string[0]);
+        }
+        protected override MapperConfiguration Configuration => new MapperConfiguration(cfg => cfg.CreateMap<Source, Destination>());
+        [Fact]
+        public void Should_fail() => new Action(() => Mapper.Map(new Source(), new Destination()))
+            .ShouldThrow<AutoMapperMappingException>()
+            .InnerException.ShouldBeOfType<NotSupportedException>()
+            .Message.ShouldBe("Collection is read-only.");
     }
 
     public class When_mapping_to_readonly_property_UseDestinationValue : AutoMapperSpecBase
@@ -279,7 +566,6 @@ namespace AutoMapper.UnitTests
             new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<SourceItem, DestItem>();
-                cfg.CreateMissingTypeMaps = false;
             });
 
         [Fact]
@@ -287,7 +573,7 @@ namespace AutoMapper.UnitTests
         {
             new Action(Configuration.AssertConfigurationIsValid).ShouldThrowException<AutoMapperConfigurationException>(ex =>
             {
-                ex.PropertyMap.SourceMember.ShouldBe(typeof(SourceItem).GetProperty("ShipsTo"));
+                ex.MemberMap.SourceMember.ShouldBe(typeof(SourceItem).GetProperty("ShipsTo"));
                 ex.Types.Value.ShouldBe(new TypePair(typeof(SourceItem), typeof(DestItem)));
             });
         } 

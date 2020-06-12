@@ -139,10 +139,30 @@ namespace AutoMapper
         /// <param name="membersToExpand">Explicit members to expand</param>
         /// <returns>Queryable result, use queryable extension methods to project and execute result</returns>
         IQueryable<TDestination> ProjectTo<TDestination>(IQueryable source, IDictionary<string, object> parameters, params string[] membersToExpand);
+
+        /// <summary>
+        /// Project the input queryable.
+        /// </summary>
+        /// <param name="source">Queryable source</param>
+        /// <param name="destinationType">Destination type to map to</param>
+        /// <param name="parameters">Optional parameter object for parameterized mapping expressions</param>
+        /// <param name="membersToExpand">Explicit members to expand</param>
+        /// <returns>Queryable result, use queryable extension methods to project and execute result</returns>
+        IQueryable ProjectTo(IQueryable source, Type destinationType, IDictionary<string, object> parameters = null, params string[] membersToExpand);
     }
 
     public interface IRuntimeMapper : IMapper
     {
+        [Obsolete(Mapper.NoContextMapperOptions)]
+        new TDestination Map<TDestination>(object source, Action<IMappingOperationOptions> opts);
+        [Obsolete(Mapper.NoContextMapperOptions)]
+        new TDestination Map<TSource, TDestination>(TSource source, Action<IMappingOperationOptions<TSource, TDestination>> opts);
+        [Obsolete(Mapper.NoContextMapperOptions)]
+        new TDestination Map<TSource, TDestination>(TSource source, TDestination destination, Action<IMappingOperationOptions<TSource, TDestination>> opts);
+        [Obsolete(Mapper.NoContextMapperOptions)]
+        new object Map(object source, Type sourceType, Type destinationType, Action<IMappingOperationOptions> opts);
+        [Obsolete(Mapper.NoContextMapperOptions)]
+        new object Map(object source, object destination, Type sourceType, Type destinationType, Action<IMappingOperationOptions> opts);
         ResolutionContext DefaultContext { get; }
         object Map(object source, object destination, Type sourceType, Type destinationType, ResolutionContext context, IMemberMap memberMap = null);
         TDestination Map<TSource, TDestination>(TSource source, TDestination destination, ResolutionContext context, IMemberMap memberMap = null);

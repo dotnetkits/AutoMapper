@@ -41,6 +41,11 @@ namespace AutoMapper.Mappers.Internal
             UseDestinationValue();
 
             var addItems = ForEach(sourceExpression, itemParam, Call(destination, addMethod, itemExpr));
+            var overMaxDepth = contextExpression.OverMaxDepth(memberMap?.TypeMap);
+            if (overMaxDepth != null)
+            {
+                addItems = Condition(overMaxDepth, Empty(), addItems);
+            }
             var mapExpr = Block(addItems, destination);
 
             var clearMethod = destinationCollectionType.GetDeclaredMethod("Clear");
@@ -70,17 +75,21 @@ namespace AutoMapper.Mappers.Internal
                 else
                 {
                     destination = newExpression;
-                    Expression createInstance = passedDestination.Type.NewExpr(ifInterfaceType);
-                    var isReadOnly = Property(ToType(passedDestination, destinationCollectionType), "IsReadOnly");
-                    assignNewExpression = Assign(newExpression,
-                        Condition(OrElse(Equal(passedDestination, Constant(null)), isReadOnly), ToType(createInstance, passedDestination.Type), passedDestination));
+                    var createInstance = passedDestination.Type.NewExpr(ifInterfaceType);
+                    var shouldCreateDestination = Equal(passedDestination, Constant(null));
+                    if (memberMap?.CanBeSet == true)
+                    {
+                        var isReadOnly = Property(ToType(passedDestination, destinationCollectionType), "IsReadOnly");
+                        shouldCreateDestination = OrElse(shouldCreateDestination, isReadOnly);
+                    }
+                    assignNewExpression = Assign(newExpression, Condition(shouldCreateDestination, ToType(createInstance, passedDestination.Type), passedDestination));
                 }
             }
         }
 
         private static Expression NewExpr(this Type baseType, Type ifInterfaceType)
         {
-            var newExpr = baseType.IsInterface()
+            var newExpr = baseType.IsInterface
                 ? New(
                     ifInterfaceType.MakeGenericType(GetElementTypes(baseType,
                         ElementTypeFlags.BreakKeyValuePair)))

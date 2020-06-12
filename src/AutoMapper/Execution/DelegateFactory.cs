@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
 using AutoMapper.Configuration;
@@ -12,6 +13,7 @@ namespace AutoMapper.Execution
     using static Internal.ExpressionFactory;
     using static ElementTypeHelper;
 
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public static class DelegateFactory
     {
         private static readonly LockingConcurrentDictionary<Type, Func<object>> CtorCache = new LockingConcurrentDictionary<Type, Func<object>>(GenerateConstructor);
@@ -25,12 +27,7 @@ namespace AutoMapper.Execution
             return Lambda<Func<object>>(Convert(ctorExpr, typeof(object))).Compile();
         }
 
-        public static Expression GenerateConstructorExpression(Type type, ProfileMap configuration) =>
-            configuration.AllowNullDestinationValues
-                ? GenerateConstructorExpression(type)
-                : GenerateNonNullConstructorExpression(type);
-
-        public static Expression GenerateNonNullConstructorExpression(Type type) => type.IsValueType()
+        public static Expression GenerateNonNullConstructorExpression(Type type) => type.IsValueType
             ? Default(type)
             : (type == typeof(string)
                 ? Constant(string.Empty)
@@ -39,7 +36,7 @@ namespace AutoMapper.Execution
 
         public static Expression GenerateConstructorExpression(Type type)
         {
-            if (type.IsValueType())
+            if (type.IsValueType)
             {
                 return Default(type);
             }
@@ -49,7 +46,7 @@ namespace AutoMapper.Execution
                 return Constant(null, typeof(string));
             }
 
-            if (type.IsInterface())
+            if (type.IsInterface)
             {
                 return
                     type.IsDictionaryType() ? CreateCollection(type, typeof(Dictionary<,>))
@@ -59,7 +56,7 @@ namespace AutoMapper.Execution
                     : InvalidType(type, $"Cannot create an instance of interface type {type}.");
             }
 
-            if (type.IsAbstract())
+            if (type.IsAbstract)
             {
                 return InvalidType(type, $"Cannot create an instance of abstract type {type}.");
             }

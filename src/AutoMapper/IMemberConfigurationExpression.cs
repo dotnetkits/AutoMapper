@@ -106,15 +106,25 @@ namespace AutoMapper
         void Ignore();
 
         /// <summary>
-        /// Allow this member to be null. This prevents generating a check condition for it.
+        /// Allow this member to be null. Overrides AllowNullDestinationValues/AllowNullCollection.
         /// </summary>
         void AllowNull();
+
+        /// <summary>
+        /// Don't allow this member to be null. Overrides AllowNullDestinationValues/AllowNullCollection.
+        /// </summary>
+        void DoNotAllowNull();
 
         /// <summary>
         /// Supply a custom mapping order instead of what the .NET runtime returns
         /// </summary>
         /// <param name="mappingOrder">Mapping order value</param>
         void SetMappingOrder(int mappingOrder);
+
+        /// <summary>
+        /// Reset UseDestinationValue.
+        /// </summary>
+        void DontUseDestinationValue();
 
         /// <summary>
         /// Use the destination value instead of mapping from the source value or creating a new instance

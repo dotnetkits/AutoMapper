@@ -21,14 +21,15 @@ namespace AutoMapper.Configuration
         protected MappingExpressionBase(MemberList memberList, TypePair types)
         {
             Types = types;
-            IsOpenGeneric = types.SourceType.IsGenericTypeDefinition() || types.DestinationType.IsGenericTypeDefinition();
+            IsOpenGeneric = types.SourceType.IsGenericTypeDefinition || types.DestinationType.IsGenericTypeDefinition;
             TypeMapActions.Add(tm => tm.ConfiguredMemberList = memberList);
         }
         public TypePair Types { get; }
         public bool IsOpenGeneric { get; }
+        public bool IsReverseMap { get; set; }
         public Type SourceType => Types.SourceType;
         public Type DestinationType => Types.DestinationType;
-        public MappingFeatures Features { get; } = new MappingFeatures();
+        public Features<IMappingFeature> Features { get; } = new Features<IMappingFeature>();
         public ITypeMapConfiguration ReverseTypeMap => ReverseMapExpression;
         public IList<ValueTransformerConfiguration> ValueTransformers { get; } = new List<ValueTransformerConfiguration>();
 
@@ -42,8 +43,7 @@ namespace AutoMapper.Configuration
         {
             foreach(var destProperty in typeMap.DestinationTypeDetails.PublicWriteAccessors)
             {
-                var attrs = destProperty.GetCustomAttributes(true);
-                if(attrs.Any(x => x is IgnoreMapAttribute))
+                if(destProperty.Has<IgnoreMapAttribute>())
                 {
                     IgnoreDestinationMember(destProperty);
                     var sourceProperty = typeMap.SourceType.GetInheritedMember(destProperty.Name);
@@ -57,8 +57,8 @@ namespace AutoMapper.Configuration
                     IgnoreDestinationMember(destProperty);
                 }
             }
-
-            foreach(var action in TypeMapActions)
+            MapDestinationCtorToSource(typeMap, CtorParamConfigurations);
+            foreach (var action in TypeMapActions)
             {
                 action(typeMap);
             }
@@ -100,12 +100,55 @@ namespace AutoMapper.Configuration
             }
         }
 
+        private void MapDestinationCtorToSource(TypeMap typeMap, List<ICtorParameterConfiguration> ctorParamConfigurations)
+        {
+            var ctorMap = typeMap.ConstructorMap;
+            if (ctorMap != null)
+            {
+                foreach (var paramMap in ctorMap.CtorParams)
+                {
+                    paramMap.CanResolveValue = paramMap.CanResolveValue || IsConfigured(paramMap.Parameter);
+                }
+                return;
+            }
+            if (typeMap.DestinationType.IsAbstract || !typeMap.Profile.ConstructorMappingEnabled)
+            {
+                return;
+            }
+            foreach (var destCtor in typeMap.DestinationTypeDetails.Constructors.OrderByDescending(ci => ci.GetParameters().Length))
+            {
+                var ctorParameters = destCtor.GetParameters();
+                if (ctorParameters.Length == 0)
+                {
+                    break;
+                }
+                ctorMap = new ConstructorMap(destCtor, typeMap);
+                foreach (var parameter in ctorParameters)
+                {
+                    var resolvers = new LinkedList<MemberInfo>();
+                    var canResolve = typeMap.Profile.MapDestinationPropertyToSource(typeMap.SourceTypeDetails, destCtor.DeclaringType, parameter.GetType(), parameter.Name, resolvers, IsReverseMap);
+                    if ((!canResolve && parameter.IsOptional) || IsConfigured(parameter))
+                    {
+                        canResolve = true;
+                    }
+                    ctorMap.AddParameter(parameter, resolvers.ToArray(), canResolve);
+                }
+                typeMap.ConstructorMap = ctorMap;
+                if (ctorMap.CanResolve)
+                {
+                    break;
+                }
+            }
+            return;
+            bool IsConfigured(ParameterInfo parameter) => ctorParamConfigurations.Any(c => c.CtorParamName == parameter.Name);
+        }
+
         protected IEnumerable<IPropertyMapConfiguration> MapToSourceMembers() =>
             MemberConfigurations.Where(m => m.SourceExpression != null && m.SourceExpression.Body == m.SourceExpression.Parameters[0]);
 
         private void ReverseIncludedMembers(TypeMap typeMap)
         {
-            foreach(var includedMember in typeMap.IncludedMembers)
+            foreach(var includedMember in typeMap.IncludedMembers.Where(i=>i.IsMemberPath()))
             {
                 var memberPath = new MemberPath(includedMember);
                 var newSource = Parameter(typeMap.DestinationType, "source");
@@ -116,7 +159,7 @@ namespace AutoMapper.Configuration
 
         private void ReverseSourceMembers(TypeMap typeMap)
         {
-            foreach(var propertyMap in typeMap.PropertyMaps.Where(p => p.SourceMembers.Count() > 1 && !p.SourceMembers.Any(s => s is MethodInfo)))
+            foreach(var propertyMap in typeMap.PropertyMaps.Where(p => p.SourceMembers.Count > 1 && !p.SourceMembers.Any(s => s is MethodInfo)))
             {
                 var memberPath = new MemberPath(propertyMap.SourceMembers);
                 var customExpression = ExpressionFactory.MemberAccessLambda(propertyMap.DestinationMember);
@@ -163,7 +206,7 @@ namespace AutoMapper.Configuration
 
         protected void CheckIsDerived(Type derivedType, Type baseType)
         {
-            if(!baseType.IsAssignableFrom(derivedType) && !derivedType.IsGenericTypeDefinition() && !baseType.IsGenericTypeDefinition())
+            if(!baseType.IsAssignableFrom(derivedType) && !derivedType.IsGenericTypeDefinition && !baseType.IsGenericTypeDefinition)
             {
                 throw new ArgumentOutOfRangeException(nameof(derivedType), $"{derivedType} is not derived from {baseType}.");
             }
@@ -177,7 +220,7 @@ namespace AutoMapper.Configuration
         }
 
         protected IPropertyMapConfiguration GetDestinationMemberConfiguration(MemberInfo destinationMember) =>
-            MemberConfigurations.FirstOrDefault(m => m.DestinationMember == destinationMember);
+            MemberConfigurations.FirstOrDefault(m => m.DestinationMember.Name == destinationMember.Name);
 
         protected abstract void IgnoreDestinationMember(MemberInfo property, bool ignorePaths = true);
     }
@@ -247,7 +290,7 @@ namespace AutoMapper.Configuration
         public TMappingExpression BeforeMap<TMappingAction>() where TMappingAction : IMappingAction<TSource, TDestination>
         {
             void BeforeFunction(TSource src, TDestination dest, ResolutionContext ctxt)
-                => ((TMappingAction)ctxt.Options.ServiceCtor(typeof(TMappingAction))).Process(src, dest);
+                => ((TMappingAction)ctxt.Options.ServiceCtor(typeof(TMappingAction))).Process(src, dest, ctxt);
 
             return BeforeMap(BeforeFunction);
         }
@@ -281,7 +324,7 @@ namespace AutoMapper.Configuration
         public TMappingExpression AfterMap<TMappingAction>() where TMappingAction : IMappingAction<TSource, TDestination>
         {
             void AfterFunction(TSource src, TDestination dest, ResolutionContext ctxt)
-                => ((TMappingAction)ctxt.Options.ServiceCtor(typeof(TMappingAction))).Process(src, dest);
+                => ((TMappingAction)ctxt.Options.ServiceCtor(typeof(TMappingAction))).Process(src, dest, ctxt);
 
             return AfterMap(AfterFunction);
         }
@@ -401,7 +444,7 @@ namespace AutoMapper.Configuration
 
         public TMappingExpression ForCtorParam(string ctorParamName, Action<ICtorParamConfigurationExpression<TSource>> paramOptions)
         {
-            var ctorParamExpression = new CtorParamConfigurationExpression<TSource>(ctorParamName);
+            var ctorParamExpression = new CtorParamConfigurationExpression<TSource, TDestination>(ctorParamName, SourceType);
 
             paramOptions(ctorParamExpression);
 

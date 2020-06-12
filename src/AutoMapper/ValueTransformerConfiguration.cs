@@ -4,7 +4,7 @@ using System.Linq.Expressions;
 
 namespace AutoMapper
 {
-    public struct ValueTransformerConfiguration
+    public readonly struct ValueTransformerConfiguration
     {
         public ValueTransformerConfiguration(Type valueType, LambdaExpression transformerExpression)
         {
@@ -16,7 +16,7 @@ namespace AutoMapper
         public LambdaExpression TransformerExpression { get; }
 
         public bool IsMatch(IMemberMap memberMap) 
-            => memberMap.DestinationType.IsAssignableFrom(ValueType);
+            => ValueType.IsAssignableFrom(memberMap.SourceType) && memberMap.DestinationType.IsAssignableFrom(ValueType);
     }
 
     public static class ValueTransformerConfigurationExtensions

@@ -2,17 +2,19 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 
 namespace AutoMapper.Configuration.Conventions
 {
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public class MemberConfiguration : IMemberConfiguration
     {
         public IParentSourceToDestinationNameMapper NameMapper { get; set; }
 
         public IList<IChildMemberConfiguration> MemberMappers { get; } = new Collection<IChildMemberConfiguration>();
-        
+
         public IMemberConfiguration AddMember<TMemberMapper>(Action<TMemberMapper> setupAction = null)
             where TMemberMapper : IChildMemberConfiguration, new()
         {
@@ -46,12 +48,12 @@ namespace AutoMapper.Configuration.Conventions
             MemberMappers.Add(new DefaultMember { NameMapper = NameMapper });
         }
 
-        public bool MapDestinationPropertyToSource(ProfileMap options, TypeDetails sourceType, Type destType, Type destMemberType, string nameToSearch, LinkedList<MemberInfo> resolvers)
+        public bool MapDestinationPropertyToSource(ProfileMap options, TypeDetails sourceType, Type destType, Type destMemberType, string nameToSearch, LinkedList<MemberInfo> resolvers, bool isReverseMap)
         {
             var foundMap = false;
             foreach (var memberMapper in MemberMappers)
             {
-                foundMap = memberMapper.MapDestinationPropertyToSource(options, sourceType, destType, destMemberType, nameToSearch, resolvers, this);
+                foundMap = memberMapper.MapDestinationPropertyToSource(options, sourceType, destType, destMemberType, nameToSearch, resolvers, this, isReverseMap);
                 if (foundMap)
                     break;
             }

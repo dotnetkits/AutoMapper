@@ -17,11 +17,11 @@ namespace AutoMapper.Configuration
         public IMappingExpression ReverseMap()
         {
             var reversedTypes = new TypePair(Types.DestinationType, Types.SourceType);
-            var reverseMap = new MappingExpression(reversedTypes, MemberList.None);
-            if(!reversedTypes.IsGenericTypeDefinition)
+            var reverseMap = new MappingExpression(reversedTypes, MemberList.None)
             {
-                reverseMap.MemberConfigurations.AddRange(MemberConfigurations.Select(m => m.Reverse()).Where(m => m != null));
-            }
+                IsReverseMap = true
+            };
+            reverseMap.MemberConfigurations.AddRange(MemberConfigurations.Select(m => m.Reverse()).Where(m => m != null));
             ReverseMapExpression = reverseMap;
             reverseMap.IncludeMembers(MapToSourceMembers().Select(m => m.DestinationMember.Name).ToArray());
             foreach(var includedMemberName in IncludedMembersNames)
@@ -201,17 +201,24 @@ namespace AutoMapper.Configuration
 
         private void IncludeMembersCore(LambdaExpression[] memberExpressions)
         {
-            foreach(var member in memberExpressions)
+            foreach(var member in memberExpressions.Select(memberExpression => memberExpression.GetMember()).Where(member => member != null))
             {
-                member.EnsureMemberPath(nameof(memberExpressions));
-                ForSourceMemberCore(new MemberPath(member).First, o => o.DoNotValidate());
+                ForSourceMemberCore(member, o => o.DoNotValidate());
             }
             TypeMapActions.Add(tm => tm.IncludedMembers = memberExpressions);
         }
 
         public IMappingExpression<TSource, TDestination> IncludeMembers(params Expression<Func<TSource, object>>[] memberExpressions)
         {
-            IncludeMembersCore(memberExpressions);
+            var memberExpressionsWithoutCastToObject = Array.ConvertAll(
+                memberExpressions,
+                e =>
+                {
+                    var bodyIsCastToObject = e.Body.NodeType == ExpressionType.Convert && e.Body.Type == typeof(object);
+                    return bodyIsCastToObject ? Expression.Lambda(((UnaryExpression)e.Body).Operand, e.Parameters) : e;
+                });
+
+            IncludeMembersCore(memberExpressionsWithoutCastToObject);
             return this;
         }
 
@@ -225,8 +232,7 @@ namespace AutoMapper.Configuration
         {
             TypeMapActions.Add(typeMap =>
             {
-                foreach (var accessor in typeMap.DestinationTypeDetails.PublicReadAccessors.Where(m =>
-                    GetDestinationMemberConfiguration(m) == null))
+                foreach (var accessor in typeMap.DestinationTypeDetails.PublicReadAccessors.Where(m => GetDestinationMemberConfiguration(m) == null))
                 {
                     ForDestinationMember(accessor, memberOptions);
                 }
@@ -282,7 +288,11 @@ namespace AutoMapper.Configuration
 
         public IMappingExpression<TDestination, TSource> ReverseMap()
         {
-            var reverseMap = new MappingExpression<TDestination, TSource>(MemberList.None, Types.DestinationType, Types.SourceType);
+            var reverseMap =
+                new MappingExpression<TDestination, TSource>(MemberList.None, Types.DestinationType, Types.SourceType)
+                {
+                    IsReverseMap = true
+                };
             reverseMap.MemberConfigurations.AddRange(MemberConfigurations.Select(m => m.Reverse()).Where(m => m != null));
             ReverseMapExpression = reverseMap;
             reverseMap.IncludeMembersCore(MapToSourceMembers().Select(m => m.GetDestinationExpression()).ToArray());

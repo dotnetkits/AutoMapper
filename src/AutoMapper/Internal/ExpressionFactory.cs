@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using AutoMapper.Configuration;
 
 namespace AutoMapper.Internal
@@ -22,7 +24,7 @@ namespace AutoMapper.Internal
 
 
         public static MemberExpression MemberAccesses(string members, Expression obj) =>
-            (MemberExpression) ReflectionHelper.GetMemberPath(obj.Type, members).MemberAccesses(obj);
+            (MemberExpression)ReflectionHelper.GetMemberPath(obj.Type, members).MemberAccesses(obj);
 
         public static Expression GetSetter(MemberExpression memberExpression)
         {
@@ -36,11 +38,11 @@ namespace AutoMapper.Internal
 
         public static MethodInfo Method<TType, TResult>(Expression<Func<TType, TResult>> expression) => GetExpressionBodyMethod(expression);
 
-        private static MethodInfo GetExpressionBodyMethod(LambdaExpression expression) => ((MethodCallExpression) expression.Body).Method;
+        private static MethodInfo GetExpressionBodyMethod(LambdaExpression expression) => ((MethodCallExpression)expression.Body).Method;
 
         public static Expression ForEach(Expression collection, ParameterExpression loopVar, Expression loopContent)
         {
-            if(collection.Type.IsArray)
+            if (collection.Type.IsArray)
             {
                 return ForEachArrayItem(collection, arrayItem => Block(new[] { loopVar }, Assign(loopVar, arrayItem), loopContent));
             }
@@ -57,16 +59,17 @@ namespace AutoMapper.Internal
 
             var loop = Block(new[] { enumeratorVar },
                 enumeratorAssign,
-                Loop(
-                    IfThenElse(
-                        Equal(moveNextCall, Constant(true)),
-                        Block(new[] { loopVar },
-                            Assign(loopVar, ToType(Property(enumeratorVar, "Current"), loopVar.Type)),
-                            loopContent
+                Using(enumeratorVar,
+                    Loop(
+                        IfThenElse(
+                            Equal(moveNextCall, Constant(true)),
+                            Block(new[] { loopVar },
+                                Assign(loopVar, ToType(Property(enumeratorVar, "Current"), loopVar.Type)),
+                                loopContent
+                            ),
+                            Break(breakLabel)
                         ),
-                        Break(breakLabel)
-                    ),
-                breakLabel)
+                    breakLabel))
             );
 
             return loop;
@@ -120,48 +123,65 @@ namespace AutoMapper.Internal
 
         public static LambdaExpression Concat(LambdaExpression expr, LambdaExpression concat) => (LambdaExpression)new ExpressionConcatVisitor(expr).Visit(concat);
 
-        public static Expression NullCheck(Expression expression, Type destinationType)
+        public static Expression NullCheck(Expression expression, Type destinationType = null)
         {
-            var target = expression;
-            Expression nullConditions = Constant(false);
-            do
+            destinationType ??= expression.Type;
+            var chain = expression.GetChain().ToArray();
+            if (!(chain.FirstOrDefault().Target is ParameterExpression parameter))
             {
-                if(target is MemberExpression member)
-                {
-                    target = member.Expression;
-                    NullCheck();
-                }
-                else if(target is MethodCallExpression method)
-                {
-                    target = method.Method.IsStatic() ? method.Arguments.FirstOrDefault() : method.Object;
-                    NullCheck();
-                }
-                else if(target?.NodeType == ExpressionType.Parameter)
-                {
-                    var returnType = Nullable.GetUnderlyingType(destinationType) == expression.Type ? destinationType : expression.Type;
-                    var nullCheck = Condition(nullConditions, Default(returnType), ToType(expression, returnType));
-                    return nullCheck;
-                }
-                else
-                {
-                    return expression;
-                }
+                return expression;
             }
-            while(true);
-            void NullCheck()
+            var variables = new List<ParameterExpression> { parameter };
+            var nullConditions = new Stack<Expression>();
+            var name = parameter.Name;
+            foreach (var member in chain)
             {
-                if(target == null || target.Type.IsValueType())
-                {
-                    return;
-                }
-                nullConditions = OrElse(Equal(target, Constant(null, target.Type)), nullConditions);
+                var variable = Variable(member.Target.Type, name);
+                name += member.MemberInfo.Name;
+                var assignment = Assign(variable, UpdateTarget(member.Target, variables[variables.Count - 1]));
+                variables.Add(variable);
+                nullConditions.Push(variable.Type.IsValueType ? (Expression) Block(assignment, Constant(false)) : Equal(assignment, Constant(null, variable.Type)));
             }
+            var returnType = Nullable.GetUnderlyingType(destinationType) == expression.Type ? destinationType : expression.Type;
+            var nullCheck = nullConditions.Aggregate((Expression)Constant(false), (left, right) => OrElse(right, left));
+            var nonNullExpression = UpdateTarget(expression, variables[variables.Count - 1]);
+            return Block(variables.Skip(1), Condition(nullCheck, Default(returnType), ToType(nonNullExpression, returnType)));
+            static Expression UpdateTarget(Expression sourceExpression, Expression newTarget) =>
+                sourceExpression switch
+                {
+                    MethodCallExpression methodCall when methodCall.Method.IsStatic => methodCall.Update(null, new[] { newTarget }.Concat(methodCall.Arguments.Skip(1))),
+                    MethodCallExpression methodCall => methodCall.Update(newTarget, methodCall.Arguments),
+                    MemberExpression memberExpression => memberExpression.Update(newTarget),
+                    _ => sourceExpression,
+                };
+        }
+
+        static readonly Expression<Action<IDisposable>> DisposeExpression = disposable => disposable.Dispose();
+
+        public static Expression Using(Expression disposable, Expression body)
+        {
+            Expression disposeCall;
+            if (typeof(IDisposable).IsAssignableFrom(disposable.Type))
+            {
+                disposeCall = DisposeExpression.ReplaceParameters(disposable);
+            }
+            else
+            {
+                if (disposable.Type.IsValueType)
+                {
+                    return body;
+                }
+                var disposableVariable = Variable(typeof(IDisposable), "disposableVariable");
+                var assignDisposable = Assign(disposableVariable, TypeAs(disposable, typeof(IDisposable)));
+                disposeCall = Block(new[] { disposableVariable }, assignDisposable, IfNullElse(disposableVariable, Empty(), DisposeExpression.ReplaceParameters(disposableVariable)));
+            }
+            return TryFinally(body, disposeCall);
         }
 
         public static Expression IfNullElse(Expression expression, Expression then, Expression @else = null)
         {
             var nonNullElse = ToType(@else ?? Default(then.Type), then.Type);
-            if(expression.Type.IsValueType() && !expression.Type.IsNullableType())
+            if(expression.Type.IsValueType && !expression.Type.IsNullableType())
             {
                 return nonNullElse;
             }

@@ -49,23 +49,6 @@ namespace AutoMapper
         TypeMap ResolveTypeMap(Type sourceType, Type destinationType);
 
         /// <summary>
-        /// Resolve the <see cref="TypeMap"/> for the configured source and destination type, checking parent types
-        /// </summary>
-        /// <param name="sourceType">Configured source type</param>
-        /// <param name="destinationType">Configured destination type</param>
-        /// <param name="inlineConfiguration">Inline type map configuration if exists</param>
-        /// <returns>Type map configuration</returns>
-        TypeMap ResolveTypeMap(Type sourceType, Type destinationType, ITypeMapConfiguration inlineConfiguration);
-
-        /// <summary>
-        /// Resolve the <see cref="TypeMap"/> for the configured type pair, checking parent types
-        /// </summary>
-        /// <param name="typePair">Type pair</param>
-        /// <param name="inlineConfiguration">Inline type map configuration if exists</param>
-        /// <returns>Type map configuration</returns>
-        TypeMap ResolveTypeMap(TypePair typePair, ITypeMapConfiguration inlineConfiguration);
-
-        /// <summary>
         /// Resolve the <see cref="TypeMap"/> for the configured type pair, checking parent types
         /// </summary>
         /// <param name="typePair">Type pair</param>
@@ -105,7 +88,7 @@ namespace AutoMapper
         /// Gets the features collection.
         /// </summary>
         /// <value>The feature colection.</value>
-        RuntimeFeatures Features { get; }
+        Features<IRuntimeFeature> Features { get; }
 
         /// <summary>
         /// Find a matching object mapper.
@@ -132,6 +115,8 @@ namespace AutoMapper
         IEnumerable<IExpressionResultConverter> ResultConverters { get; }
 
         IEnumerable<IExpressionBinder> Binders { get; }
+
+        int RecursiveQueriesMaxDepth { get; }
 
         /// <summary>
         /// Create a mapper instance based on this configuration. Mapper instances are lightweight and can be created as needed.

@@ -28,7 +28,7 @@ namespace AutoMapper.Configuration
 
         public AdvancedConfiguration Advanced { get; } = new AdvancedConfiguration();
 
-        public GlobalFeatures Features { get; } = new GlobalFeatures();
+        public Features<IGlobalFeature> Features { get; } = new Features<IGlobalFeature>();
 
         private class NamedProfile : Profile
         {
@@ -49,24 +49,6 @@ namespace AutoMapper.Configuration
         public void AddProfile<TProfile>() where TProfile : Profile, new() => AddProfile(new TProfile());
 
         public void AddProfile(Type profileType) => AddProfile((Profile)Activator.CreateInstance(profileType));
-
-        public void AddProfiles(IEnumerable<Assembly> assembliesToScan)
-            => AddMaps(assembliesToScan);
-
-        public void AddProfiles(params Assembly[] assembliesToScan)
-            => AddMaps(assembliesToScan);
-
-        public void AddProfiles(IEnumerable<string> assemblyNamesToScan)
-            => AddMaps(assemblyNamesToScan);
-
-        public void AddProfiles(params string[] assemblyNamesToScan)
-            => AddMaps(assemblyNamesToScan);
-
-        public void AddProfiles(IEnumerable<Type> typesFromAssembliesContainingProfiles)
-            => AddMaps(typesFromAssembliesContainingProfiles);
-
-        public void AddProfiles(params Type[] typesFromAssembliesContainingProfiles)
-            => AddMaps(typesFromAssembliesContainingProfiles);
 
         public void AddProfiles(IEnumerable<Profile> enumerableOfProfiles)
         {
@@ -106,12 +88,10 @@ namespace AutoMapper.Configuration
                     AddProfile(type.AsType());
                 }
 
-                var autoMapAttribute = type.GetCustomAttribute<AutoMapAttribute>();
-                if (autoMapAttribute != null)
+                foreach (var autoMapAttribute in type.GetCustomAttributes<AutoMapAttribute>())
                 {
                     var mappingExpression = (MappingExpression) autoMapAttributeProfile.CreateMap(autoMapAttribute.SourceType, type);
-                    autoMapAttribute.ApplyConfiguration(mappingExpression);
-
+                
                     foreach (var memberInfo in type.GetMembers(BindingFlags.Public | BindingFlags.Instance))
                     {
                         foreach (var memberConfigurationProvider in memberInfo.GetCustomAttributes().OfType<IMemberConfigurationProvider>())
@@ -119,6 +99,8 @@ namespace AutoMapper.Configuration
                             mappingExpression.ForMember(memberInfo, cfg => memberConfigurationProvider.ApplyConfiguration(cfg));
                         }
                     }
+
+                    autoMapAttribute.ApplyConfiguration(mappingExpression);
                 }
             }
 

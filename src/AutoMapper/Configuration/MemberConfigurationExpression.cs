@@ -10,7 +10,8 @@ namespace AutoMapper.Configuration
 
     public class MemberConfigurationExpression<TSource, TDestination, TMember> : IMemberConfigurationExpression<TSource, TDestination, TMember>, IPropertyMapConfiguration
     {
-        private LambdaExpression _sourceMember;
+        private LambdaExpression _sourceExpression;
+        private MemberInfo _sourceMember;
         private readonly Type _sourceType;
         protected List<Action<PropertyMap>> PropertyMapActions { get; } = new List<Action<PropertyMap>>();
 
@@ -116,13 +117,13 @@ namespace AutoMapper.Configuration
 
         internal void MapFromUntyped(LambdaExpression sourceExpression)
         {
-            _sourceMember = sourceExpression;
+            _sourceExpression = sourceExpression;
             PropertyMapActions.Add(pm => pm.MapFrom(sourceExpression));
         }
 
         public void MapFrom(string sourceMemberName)
         {
-            _sourceType.GetFieldOrProperty(sourceMemberName);
+            _sourceMember = _sourceType.GetFieldOrProperty(sourceMemberName);
             PropertyMapActions.Add(pm => pm.MapFrom(sourceMemberName));
         }
 
@@ -225,15 +226,8 @@ namespace AutoMapper.Configuration
             });
         }
 
-        public void AddTransform(Expression<Func<TMember, TMember>> transformer)
-        {
-            PropertyMapActions.Add(pm =>
-            {
-                var config = new ValueTransformerConfiguration(typeof(TMember), transformer);
-
-                pm.AddValueTransformation(config);
-            });
-        }
+        public void AddTransform(Expression<Func<TMember, TMember>> transformer) =>
+            PropertyMapActions.Add(pm => pm.AddValueTransformation(new ValueTransformerConfiguration(pm.DestinationType, transformer)));
 
         public void ExplicitExpansion()
         {
@@ -252,15 +246,15 @@ namespace AutoMapper.Configuration
                 }
             });
 
-        public void AllowNull()
-        {
-            PropertyMapActions.Add(pm => pm.AllowNull = true);
-        }
+        public void AllowNull() => SetAllowNull(true);
 
-        public void UseDestinationValue()
-        {
-            PropertyMapActions.Add(pm => pm.UseDestinationValue = true);
-        }
+        public void DoNotAllowNull() => SetAllowNull(false);
+
+        private void SetAllowNull(bool value) => PropertyMapActions.Add(pm => pm.AllowNull = value);
+
+        public void UseDestinationValue() => SetUseDestinationValue(true);
+
+        private void SetUseDestinationValue(bool value) => PropertyMapActions.Add(pm => pm.UseDestinationValue = value);
 
         public void SetMappingOrder(int mappingOrder)
         {
@@ -319,7 +313,7 @@ namespace AutoMapper.Configuration
         {
             var destMember = DestinationMember;
 
-            if(destMember.DeclaringType.IsGenericTypeDefinition())
+            if(destMember.DeclaringType.IsGenericTypeDefinition)
             {
                 destMember = typeMap.DestinationTypeDetails.PublicReadAccessors.Single(m => m.Name == destMember.Name);
             }
@@ -335,13 +329,27 @@ namespace AutoMapper.Configuration
             {
                 action(propertyMap);
             }
-            propertyMap.CheckMappedReadonly();
         }
 
-        public LambdaExpression SourceExpression => _sourceMember;
+        public LambdaExpression SourceExpression => _sourceExpression;
         public LambdaExpression GetDestinationExpression() => MemberAccessLambda(DestinationMember);
 
-        public IPropertyMapConfiguration Reverse() =>
-            PathConfigurationExpression<TDestination, TSource, object>.Create(_sourceMember, GetDestinationExpression());
+        public IPropertyMapConfiguration Reverse()
+        {
+            var destinationType = DestinationMember.DeclaringType;
+            if (_sourceMember != null)
+            {
+                var reversedMemberConfiguration = new MemberConfigurationExpression<TDestination, TSource, object>(_sourceMember, destinationType);
+                reversedMemberConfiguration.MapFrom(DestinationMember.Name);
+                return reversedMemberConfiguration;
+            }
+            if (destinationType.IsGenericTypeDefinition) // .ForMember("InnerSource", o => o.MapFrom(s => s))
+            {
+                return null;
+            }
+            return PathConfigurationExpression<TDestination, TSource, object>.Create(_sourceExpression, GetDestinationExpression());
+        }
+
+        public void DontUseDestinationValue() => SetUseDestinationValue(false);
     }
 }

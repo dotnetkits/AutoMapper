@@ -23,7 +23,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_map_with_attribute));
             });
 
@@ -39,7 +38,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Dest>()));
             }
         }
 
@@ -58,7 +57,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_map_and_reverse_map_with_attribute));
             });
 
@@ -74,7 +72,84 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Dest>()));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Dest, Source>()));
+            }
+        }
+
+        public class When_specifying_reverse_map_with_sourcemember_attribute : NonValidatingSpecBase
+        {
+            public class Source
+            {
+                public int Value { get; set; }
+            }
+
+            [AutoMap(typeof(Source), ReverseMap = true)]
+            public class Destination
+            {
+                [SourceMember("Value")]
+                public int Value2 { get; set; }
+            }
+
+            protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
+            {
+                cfg.AddMaps(typeof(When_specifying_reverse_map_with_sourcemember_attribute));
+            });
+
+            [Fact]
+            public void Should_reverse_map()
+            {
+                var destination = new Destination { Value2 = 5 };
+                var source = Mapper.Map<Source>(destination);
+                source.Value.ShouldBe(5);
+            }
+
+            [Fact]
+            public void Should_validate_successfully()
+            {
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Destination>()));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Destination, Source>()));
+            }
+        }
+
+        public class When_specifying_generic_reverse_map_with_sourcemember_attribute : NonValidatingSpecBase
+        {
+            public class Source<T>
+            {
+                public T Value { get; set; }
+
+                public string StringValue { get; set; }
+            }
+
+            [AutoMap(typeof(Source<>), ReverseMap = true)]
+            public class Destination<T>
+            {
+                [SourceMember("Value")]
+                public int Value2 { get; set; }
+
+                [SourceMember("StringValue")]
+                public string StringValue2 { get; set; }
+            }
+
+            protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
+            {
+                cfg.AddMaps(typeof(When_specifying_generic_reverse_map_with_sourcemember_attribute));
+            });
+
+            [Fact]
+            public void Should_reverse_map()
+            {
+                Destination<int> destination = new Destination<int> { Value2 = 5, StringValue2 = "Joe" };
+                Source<int> source = Mapper.Map<Source<int>>(destination);
+                source.Value.ShouldBe(5);
+                source.StringValue.ShouldBe("Joe");
+            }
+
+            [Fact]
+            public void Should_validate_successfully()
+            {
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor(typeof(Source<>), typeof(Destination<>))));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor(typeof(Destination<>), typeof(Source<>))));
             }
         }
 
@@ -93,7 +168,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_map_and_reverse_map_with_attribute));
                 cfg.CreateMap<Source, Dest>();
             });
@@ -122,7 +196,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_source_member_name_via_attributes));
             });
 
@@ -142,7 +215,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Dest>()));
             }
         }
 
@@ -162,7 +235,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_source_member_name_via_attributes));
             });
 
@@ -182,7 +254,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Dest>()));
             }
         }
 
@@ -203,7 +275,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_source_member_name_via_attributes));
             });
 
@@ -223,7 +294,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Dest>()));
             }
         }
 
@@ -251,7 +322,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_source_member_name_via_attributes));
             });
 
@@ -271,7 +341,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Dest>()));
             }
         }
 
@@ -300,7 +370,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_value_converter_via_attribute));
             });
 
@@ -320,7 +389,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Dest>()));
             }
         }
 
@@ -348,7 +417,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_value_converter_via_attribute));
             });
 
@@ -368,7 +436,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Dest>()));
             }
         }
 
@@ -397,7 +465,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_value_converter_via_attribute));
             });
 
@@ -417,7 +484,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Dest>()));
             }
         }
 
@@ -440,7 +507,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_value_converter_via_attribute));
             });
 
@@ -461,7 +527,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Dest>()));
             }
         }
 
@@ -502,7 +568,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_value_converter_via_attribute));
             });
 
@@ -545,7 +610,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Destination>()));
             }
         }
 
@@ -586,7 +651,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_value_converter_via_attribute));
             });
 
@@ -605,7 +669,7 @@ namespace AutoMapper.UnitTests
             [Fact]
             public void Should_validate_successfully()
             {
-                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(nameof(AutoMapAttribute)));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<Source, Destination>()));
             }
         }
 
@@ -640,7 +704,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_to_construct_using_service_locator_via_attribute));
                 cfg.ConstructServicesUsing(t => new Dest(10));
             });
@@ -685,7 +748,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_max_depth_via_attribute));
             });
 
@@ -775,7 +837,6 @@ namespace AutoMapper.UnitTests
 
                 Configuration = new MapperConfiguration(cfg =>
                 {
-                    cfg.CreateMissingTypeMaps = false;
                     cfg.AddMaps(typeof(When_specifying_to_preserve_references_via_attribute));
                     cfg.CreateMap<int, List<ChildDto>>().ConvertUsing(new ParentIdToChildDtoListConverter(childModels));
                 });
@@ -802,7 +863,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_to_include_all_derived_via_attribute));
             });
 
@@ -830,7 +890,6 @@ namespace AutoMapper.UnitTests
 
             protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMissingTypeMaps = false;
                 cfg.AddMaps(typeof(When_specifying_type_of_converter_via_attribute));
             });
 
@@ -851,6 +910,53 @@ namespace AutoMapper.UnitTests
                 var source = new Source { Value = 15 };
                 var dest = Mapper.Map<Dest>(source);
                 dest.OtherValue.ShouldBe(25);
+            }
+        }
+
+        public class When_specifying_map_with__multiple_attribute_sources : NonValidatingSpecBase
+        {
+            public class FirstSource
+            {
+                public int Value { get; set; }
+            }
+
+            public class SecondSource
+            {
+                public int Value { get; set; }
+            }
+
+            [AutoMap(typeof(FirstSource))]
+            [AutoMap(typeof(SecondSource))]
+            public class Dest
+            {
+                public int Value { get; set; }
+            }
+
+            protected override MapperConfiguration Configuration { get; } = new MapperConfiguration(cfg =>
+            {
+                cfg.AddMaps(typeof(When_specifying_map_with_attribute));
+            });
+
+            [Fact]
+            public void Should_map_from_both_sources()
+            {
+                Dest dest;
+                var firstSource = new FirstSource { Value = 5 };
+                dest = Mapper.Map<Dest>(firstSource);
+
+                dest.Value.ShouldBe(5);
+
+                var secondSource = new SecondSource { Value = 10 };
+                dest = Mapper.Map<Dest>(secondSource);
+
+                dest.Value.ShouldBe(10);
+            }
+
+            [Fact]
+            public void Should_validate_successfully()
+            {
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<FirstSource, Dest>()));
+                typeof(AutoMapperConfigurationException).ShouldNotBeThrownBy(() => Configuration.AssertConfigurationIsValid(Configuration.FindTypeMapFor<SecondSource, Dest>()));
             }
         }
     }

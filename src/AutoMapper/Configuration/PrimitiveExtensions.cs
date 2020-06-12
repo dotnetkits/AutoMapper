@@ -7,6 +7,16 @@ namespace AutoMapper.Configuration
 {
     internal static class PrimitiveExtensions
     {
+        public static void ForAll<T>(this IEnumerable<T> enumerable, Action<T> action)
+        {
+            foreach (var feature in enumerable)
+            {
+                action(feature);
+            }
+        }
+
+        public static bool IsNonStringEnumerable(this Type type) => type != typeof(string) && type.IsEnumerableType();
+
         public static bool IsSetType(this Type type)
             => type.ImplementsGenericInterface(typeof(ISet<>));
 
@@ -36,9 +46,6 @@ namespace AutoMapper.Configuration
 
         public static bool IsListType(this Type type)
             => PrimitiveHelper.IsListType(type);
-
-        public static bool IsListOrDictionaryType(this Type type)
-            => PrimitiveHelper.IsListOrDictionaryType(type);
 
         public static bool IsDictionaryType(this Type type)
             => PrimitiveHelper.IsDictionaryType(type);

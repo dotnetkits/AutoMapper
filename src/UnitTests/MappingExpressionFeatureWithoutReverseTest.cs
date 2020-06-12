@@ -16,12 +16,13 @@ namespace AutoMapper.UnitTests
             var config = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<Source, Dest>()
-                    .AddOrUpdateFeature(new MappingExpressionFeatureA(3))
-                    .AddOrUpdateFeature(new MappingExpressionFeatureA(2))
-                    .AddOrUpdateFeature(featureA)
-                    .AddOrUpdateFeature(new MappingExpressionFeatureB(3))
-                    .AddOrUpdateFeature(new MappingExpressionFeatureB(2))
-                    .AddOrUpdateFeature(featureB);
+                    .SetFeature(new MappingExpressionFeatureA(3))
+                    .SetFeature(new MappingExpressionFeatureA(2))
+                    .SetFeature(featureA)
+                    .SetFeature(new MappingExpressionFeatureB(3))
+                    .SetFeature(new MappingExpressionFeatureB(2))
+                    .SetFeature(featureB)
+                    .ReverseMap();
             });
 
 
@@ -37,7 +38,7 @@ namespace AutoMapper.UnitTests
             void Validate(MappingExpressionFeatureBase feature)
             {
                 feature.ConfigureTypeMaps.ShouldBeOfLength(1);
-                feature.ReverseExecutedCount.ShouldBe(0);
+                feature.ReverseExecutedCount.ShouldBe(1);
             }
         }
 
@@ -48,7 +49,8 @@ namespace AutoMapper.UnitTests
             var config = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<Source, Dest>()
-                    .AddOrUpdateFeature(featureA);
+                    .SetFeature(featureA)
+                    .ReverseMap();
             });
 
             var typeMap = config.FindTypeMapFor<Source, Dest>();
@@ -63,7 +65,7 @@ namespace AutoMapper.UnitTests
                 where TFeature : TypeMapFeatureBase
             {
                 feature.ConfigureTypeMaps.ShouldBeOfLength(1);
-                feature.ReverseExecutedCount.ShouldBe(0);
+                feature.ReverseExecutedCount.ShouldBe(1);
 
                 var typeMapFeature = typeMap.Features.Get<TFeature>();
                 typeMapFeature.ShouldNotBeNull();
@@ -79,7 +81,7 @@ namespace AutoMapper.UnitTests
             var config = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<Source, Dest>()
-                    .AddOrUpdateFeature(featureA)
+                    .SetFeature(featureA)
                     .ReverseMap();
             });
 
@@ -112,8 +114,9 @@ namespace AutoMapper.UnitTests
             var config = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<Source, Dest>()
-                    .AddOrUpdateFeature(featureA)
-                    .AddOrUpdateFeature(featureB);
+                    .SetFeature(featureA)
+                    .SetFeature(featureB)
+                    .ReverseMap();
             });
 
 
@@ -130,7 +133,7 @@ namespace AutoMapper.UnitTests
                 where TFeature : TypeMapFeatureBase
             {
                 feature.ConfigureTypeMaps.ShouldBeOfLength(1);
-                feature.ReverseExecutedCount.ShouldBe(0);
+                feature.ReverseExecutedCount.ShouldBe(1);
 
                 var typeMapFeature = typeMap.Features.Get<TFeature>();
                 typeMapFeature.ShouldNotBeNull();
@@ -147,8 +150,8 @@ namespace AutoMapper.UnitTests
             var config = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<Source, Dest>()
-                    .AddOrUpdateFeature(featureA)
-                    .AddOrUpdateFeature(featureB)
+                    .SetFeature(featureA)
+                    .SetFeature(featureB)
                     .ReverseMap();
             });
 
@@ -183,10 +186,10 @@ namespace AutoMapper.UnitTests
             var config = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<Source, Dest>()
-                    .AddOrUpdateFeature(featureA)
-                    .AddOrUpdateFeature(featureB)
+                    .SetFeature(featureA)
+                    .SetFeature(featureB)
                     .ReverseMap()
-                    .AddOrUpdateFeature(overridenFeatureB);
+                    .SetFeature(overridenFeatureB);
             });
 
             var typeMap = config.FindTypeMapFor<Source, Dest>();

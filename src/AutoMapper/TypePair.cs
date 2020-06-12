@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using AutoMapper.Configuration;
 
 namespace AutoMapper
 {
@@ -12,19 +11,12 @@ namespace AutoMapper
     {
         public TypePair RequestedTypes { get; }
         public TypePair RuntimeTypes { get; }
-        public ITypeMapConfiguration InlineConfig { get; }
         public IMemberMap MemberMap { get; }
 
         public MapRequest(TypePair requestedTypes, TypePair runtimeTypes, IMemberMap memberMap = null) 
-            : this(requestedTypes, runtimeTypes, new MapperConfiguration.DefaultTypeMapConfig(requestedTypes), memberMap)
-        {
-        }
-
-        public MapRequest(TypePair requestedTypes, TypePair runtimeTypes, ITypeMapConfiguration inlineConfig, IMemberMap memberMap = null)
         {
             RequestedTypes = requestedTypes;
             RuntimeTypes = runtimeTypes;
-            InlineConfig = inlineConfig;
             MemberMap = memberMap;
         }
 
@@ -100,15 +92,16 @@ namespace AutoMapper
 
         public bool IsGenericTypeDefinition => SourceType.IsGenericTypeDefinition || DestinationType.IsGenericTypeDefinition;
 
+        public bool ContainsGenericParameters => SourceType.ContainsGenericParameters || DestinationType.ContainsGenericParameters;
+
         public TypePair? GetOpenGenericTypePair()
         {
             if(!IsGeneric)
             {
                 return null;
             }
-            var sourceGenericDefinition = SourceType.IsGenericType() ? SourceType.GetGenericTypeDefinition() : SourceType;
-            var destinationGenericDefinition = DestinationType.IsGenericType() ? DestinationType.GetGenericTypeDefinition() : DestinationType;
-
+            var sourceGenericDefinition = SourceType.GetTypeDefinitionIfGeneric();
+            var destinationGenericDefinition = DestinationType.GetTypeDefinitionIfGeneric();
             return new TypePair(sourceGenericDefinition, destinationGenericDefinition);
         }
 
@@ -124,8 +117,8 @@ namespace AutoMapper
             {
                 destinationArguments = sourceArguments;
             }
-            var closedSourceType = SourceType.IsGenericTypeDefinition() ? SourceType.MakeGenericType(sourceArguments) : SourceType;
-            var closedDestinationType = DestinationType.IsGenericTypeDefinition() ? DestinationType.MakeGenericType(destinationArguments) : DestinationType;
+            var closedSourceType = SourceType.IsGenericTypeDefinition ? SourceType.MakeGenericType(sourceArguments) : SourceType;
+            var closedDestinationType = DestinationType.IsGenericTypeDefinition ? DestinationType.MakeGenericType(destinationArguments) : DestinationType;
             return new TypePair(closedSourceType, closedDestinationType);
         }
 
