@@ -1,11 +1,9 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using AutoMapper.Configuration;
-using AutoMapper.Mappers.Internal;
+using AutoMapper.Internal;
 
 namespace AutoMapper.Mappers
 {
@@ -13,14 +11,14 @@ namespace AutoMapper.Mappers
 
     public class MultidimensionalArrayMapper : IObjectMapper
     {
-        private static Array Map<TDestination, TSource, TSourceElement>(TSource source, ResolutionContext context)
+        private static Array Map<TDestination, TSource, TSourceElement>(TSource source, ResolutionContext context, IConfigurationProvider configurationProvider)
             where TSource : IEnumerable
         {
             var destElementType = ElementTypeHelper.GetElementType(typeof(TDestination));
 
             if (typeof(TDestination).IsAssignableFrom(typeof(TSource)))
             {
-                var elementTypeMap = context.ConfigurationProvider.ResolveTypeMap(typeof(TSourceElement), destElementType);
+                var elementTypeMap = configurationProvider.ResolveTypeMap(typeof(TSourceElement), destElementType);
                 if (elementTypeMap == null)
                     return source as Array;
             }
@@ -53,7 +51,8 @@ namespace AutoMapper.Mappers
                 MapMethodInfo.MakeGenericMethod(destExpression.Type, sourceExpression.Type,
                     ElementTypeHelper.GetElementType(sourceExpression.Type)),
                 sourceExpression,
-                contextExpression);
+                contextExpression,
+                Constant(configurationProvider));
 
         public class MultidimensionalArrayFiller
         {

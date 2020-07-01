@@ -1,10 +1,10 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using AutoMapper.Configuration;
+using AutoMapper.Internal;
 
 namespace AutoMapper
 {
@@ -26,7 +26,7 @@ namespace AutoMapper
             Constructors = GetAllConstructors(config.ShouldUseConstructor);
             PublicNoArgExtensionMethods = BuildPublicNoArgExtensionMethods(config.SourceExtensionMethods.Where(config.ShouldMapMethod));
             AllMembers = PublicReadAccessors.Concat(PublicNoArgMethods).Concat(PublicNoArgExtensionMethods).ToList();
-            DestinationMemberNames = AllMembers.Select(mi => new DestinationMemberName { Member = mi, Possibles = PossibleNames(mi.Name, config.Prefixes, config.Postfixes).ToArray() });
+            DestinationMemberNames = AllMembers.Select(mi => new DestinationMemberName(mi, PossibleNames(mi.Name, config.Prefixes, config.Postfixes).ToArray()));
         }
 
         private IEnumerable<string> PossibleNames(string memberName, IEnumerable<string> prefixes, IEnumerable<string> postfixes)
@@ -74,11 +74,16 @@ namespace AutoMapper
                 }
             };
         }
-
-        public struct DestinationMemberName
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public readonly struct DestinationMemberName
         {
-            public MemberInfo Member { get; set; }
-            public string[] Possibles { get; set; }
+            public DestinationMemberName(MemberInfo member, string[] possibles)
+            {
+                Member = member;
+                Possibles = possibles;
+            }
+            public MemberInfo Member { get; }
+            public string[] Possibles { get; }
         }
 
         public Type Type { get; }
@@ -99,7 +104,7 @@ namespace AutoMapper
 
         private IEnumerable<MethodInfo> BuildPublicNoArgExtensionMethods(IEnumerable<MethodInfo> sourceExtensionMethodSearch)
         {
-            var explicitExtensionMethods = sourceExtensionMethodSearch.Where(method => method.GetParameters()[0].ParameterType == Type);
+            var explicitExtensionMethods = sourceExtensionMethodSearch.Where(method => method.GetParameters()[0].ParameterType.IsAssignableFrom(Type));
 
             var genericInterfaces = Type.GetTypeInfo().ImplementedInterfaces.Where(t => t.IsGenericType);
 
@@ -191,7 +196,7 @@ namespace AutoMapper
 
         private MethodInfo[] BuildPublicNoArgMethods(Func<MethodInfo, bool> shouldMapMethod)
         {
-            return Type.GetAllMethods()
+            return Type.GetRuntimeMethods()
                 .Where(shouldMapMethod)
                 .Where(mi => mi.IsPublic && !mi.IsStatic && mi.DeclaringType != typeof(object))
                 .Where(m => (m.ReturnType != typeof(void)) && (m.GetParameters().Length == 0))

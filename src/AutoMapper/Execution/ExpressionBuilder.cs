@@ -1,16 +1,14 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace AutoMapper.Execution
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Linq.Expressions;
-    using System.Reflection;
-    using System.Runtime.CompilerServices;
-    using AutoMapper.Configuration;
-    using AutoMapper.Internal;
-    using AutoMapper.Mappers.Internal;
-    using static System.Linq.Expressions.Expression;
+    using Internal;
+    using static Internal.ExpressionFactory;
+    using static Expression;
 
     public static class ExpressionBuilder
     {
@@ -18,7 +16,7 @@ namespace AutoMapper.Execution
             ctxt => ctxt.GetTypeDepth(default);
 
         private static readonly Expression<Func<IRuntimeMapper, ResolutionContext>> CreateContext =
-            mapper => new ResolutionContext(mapper.DefaultContext.Options, mapper);
+            mapper => new ResolutionContext((IInternalRuntimeMapper)mapper);
 
         private static readonly MethodInfo ContextMapMethod =
             ExpressionFactory.Method<ResolutionContext, object>(a => a.Map<object, object>(null, null, null)).GetGenericMethodDefinition();            
@@ -157,5 +155,8 @@ namespace AutoMapper.Execution
 
         public static bool AllowsNullCollections(this IMemberMap memberMap) =>
             memberMap.TypeMap.Profile.AllowsNullCollectionsFor(memberMap);
+
+        public static Expression NullSubstitute(this IMemberMap memberMap, Expression sourceExpression) =>
+            Coalesce(sourceExpression, ToType(Constant(memberMap.NullSubstitute), sourceExpression.Type));
     }
 }

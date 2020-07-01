@@ -4,8 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
-using AutoMapper.Configuration;
-using AutoMapper.Mappers.Internal;
+using AutoMapper.Internal;
 
 namespace AutoMapper.Execution
 {

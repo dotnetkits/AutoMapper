@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using AutoMapper.Configuration.Internal;
 using AutoMapper.Features;
 using AutoMapper.Internal;
 
@@ -162,7 +161,7 @@ namespace AutoMapper.Configuration
             foreach(var propertyMap in typeMap.PropertyMaps.Where(p => p.SourceMembers.Count > 1 && !p.SourceMembers.Any(s => s is MethodInfo)))
             {
                 var memberPath = new MemberPath(propertyMap.SourceMembers);
-                var customExpression = ExpressionFactory.MemberAccessLambda(propertyMap.DestinationMember);
+                var customExpression = propertyMap.DestinationMember.Lambda();
                 ReverseSourceMembers(memberPath, customExpression);
             }
         }
